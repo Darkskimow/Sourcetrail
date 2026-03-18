@@ -1,6 +1,7 @@
 #include "ToolChain.h"
 #include "language_packages.h"
 #include "utility.h"
+#include "utilityString.h"
 
 #if BUILD_CXX_LANGUAGE_PACKAGE
 	#include <llvm/Config/llvm-config.h>
@@ -594,6 +595,13 @@ static optional<string> getArgumentValue(const string &argument, string_view arg
 	return argument.starts_with(argumentKey) ? optional(argument.substr(argumentKey.length())) : nullopt;
 }
 
+static bool isMsvcLikeTool(string_view toolName)
+{
+	const string lowerToolName = utility::toLowerCase(string(toolName));
+	return lowerToolName.ends_with("cl.exe") || lowerToolName.ends_with("rc.exe") ||
+		lowerToolName.ends_with("cl-filter.exe") || lowerToolName.ends_with("rc-filter.exe");
+}
+
 void replaceMsvcArguments(vector<string> *commandLineArguments)
 {
 	// Replace/Remove arguments only if these are for the Microsoft C/C++/Resource compiler, otherwise the check for '/' will remove Linux paths:
@@ -601,7 +609,7 @@ void replaceMsvcArguments(vector<string> *commandLineArguments)
 	if (!commandLineArguments->empty())
 	{
 		string_view toolName = (*commandLineArguments)[0];
-		if (!toolName.ends_with("cl.exe"sv) && !toolName.ends_with("rc.exe"sv))
+		if (!isMsvcLikeTool(toolName))
 			return;
 	}
 	optional<string> argumentValue;
@@ -632,6 +640,8 @@ void replaceMsvcArguments(vector<string> *commandLineArguments)
 		else if ((argumentValue = getArgumentValue(*argument, "/I"sv)) || (argumentValue = getArgumentValue(*argument, "-I"sv)))
 			*argument++ = ClangCompiler::includeOption(*argumentValue);
 		else if ((argumentValue = getArgumentValue(*argument, "/external:I"sv)) || (argumentValue = getArgumentValue(*argument, "-external:I"sv)))
+			*argument++ = ClangCompiler::systemIncludeOption(*argumentValue);
+		else if ((argumentValue = getArgumentValue(*argument, "/imsvc"sv)) || (argumentValue = getArgumentValue(*argument, "-imsvc"sv)))
 			*argument++ = ClangCompiler::systemIncludeOption(*argumentValue);
 
 		// C/C++ language version selection

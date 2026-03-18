@@ -1,0 +1,7 @@
+[
+	{
+		"directory": "src",
+		"command": "C:/Unreal/Engine/Binaries/DotNET/UnrealBuildTool/cl-filter.exe /DUE_BUILD_DEVELOPMENT=1 /DUNICODE /I./generated /external:I./external /imsvcC:/VS/include /FI./SharedPCH.Engine.Project.Cpp20.h /Yu./SharedPCH.Engine.Project.Cpp20.h /Fp./Intermediate/Build/SharedPCH.Engine.Project.Cpp20.pch /std:c++20 /MD /showIncludes ./Test.cpp",
+		"file": "./Test.cpp"
+	}
+]

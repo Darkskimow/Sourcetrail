@@ -204,3 +204,39 @@ TEST_CASE("CDB replace msvc arguments")
 		REQUIRE(arguments[i] == expectedClangArguments[i]);
 }
 
+TEST_CASE("CDB replace msvc arguments for unreal wrapper")
+{
+	vector<string> arguments {
+		"C:\\Unreal\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\cl-filter.exe",
+		"/DUE_BUILD_DEVELOPMENT=1",
+		"/DUNICODE",
+		"/IProject\\Source",
+		"/external:IEngine\\Source",
+		"/imsvcC:\\VS\\include",
+		"/FISharedPCH.Engine.Project.Cpp20.h",
+		"/YuSharedPCH.Engine.Project.Cpp20.h",
+		"/FpIntermediate\\Build\\SharedPCH.Engine.Project.Cpp20.pch",
+		"/std:c++20",
+		"/MD",
+		"/showIncludes",
+		"Project\\Source\\Foo.cpp"
+	};
+
+	const vector<string> expectedClangArguments {
+		"C:\\Unreal\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\cl-filter.exe",
+		"-DUE_BUILD_DEVELOPMENT=1",
+		"-DUNICODE",
+		"-IProject\\Source",
+		"-isystemEngine\\Source",
+		"-isystemC:\\VS\\include",
+		"-includeSharedPCH.Engine.Project.Cpp20.h",
+		"-std=c++20",
+		"-pthread",
+		"Project\\Source\\Foo.cpp"
+	};
+
+	replaceMsvcArguments(&arguments);
+
+	REQUIRE(arguments == expectedClangArguments);
+}
+

@@ -89,6 +89,7 @@ Exporting a Compilation Database:
 * From **CMake** by defining the `CMAKE_EXPORT_COMPILE_COMMANDS` flag. (not supported on for Visual Studio CMake generators)
 * For **Make** projects use [Bear](https://github.com/rizsotto/Bear). Bear generates a `compile_commands.json` file during a simulated build process. Bear has been tested on FreeBSD, GNU/Linux and OS X.
 * From **Qt Creator since version 4.8** by selecting the "Generate Compilation Database" from the "Build" menu.
+* For **Unreal Engine 5 C++** projects use a `compile_commands.json` exported by Unreal Build Tool or your IDE integration and then create a C/C++ Source Group from that compilation database. Sourcetrail reads the language standard, forced includes and MSVC-style include paths from the database.
 
 If you managed to export a `compile_commands.json` file, then please continue at [Create a Source Group from Compilation Database](#create-a-project-from-compilation-database) and come back after you finished creating the project.
 

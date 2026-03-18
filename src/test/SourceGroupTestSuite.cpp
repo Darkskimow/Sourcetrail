@@ -455,6 +455,42 @@ TEST_CASE("source group cxx cdb generates expected output")
 	applicationSettings->setFrameworkSearchPaths(storedFrameworkSearchPaths);
 }
 
+TEST_CASE("source group cxx cdb unreal generates expected output")
+{
+	SharedDataDirectorySwitcher sharedDataDirectorySwitcher((FilePath()));
+
+	const std::string projectName = "cxx_cdb_unreal";
+
+	ProjectSettings projectSettings;
+	projectSettings.setProjectFilePath("non_existent_project", getInputDirectoryPath(projectName));
+
+	std::shared_ptr<SourceGroupSettingsCxxCdb> sourceGroupSettings =
+		std::make_shared<SourceGroupSettingsCxxCdb>("fake_id", &projectSettings);
+	sourceGroupSettings->setIndexedHeaderPaths({FilePath("test/indexed/header/path")});
+	sourceGroupSettings->setCompilationDatabasePath(
+		getInputDirectoryPath(projectName).concatenate("compile_commands.json"));
+	sourceGroupSettings->setExcludeFilterStrings({"**/excluded/**"});
+	sourceGroupSettings->setHeaderSearchPaths(
+		{getInputDirectoryPath(projectName).concatenate("header_search/local")});
+	sourceGroupSettings->setFrameworkSearchPaths(
+		{getInputDirectoryPath(projectName).concatenate("framework_search/local")});
+	sourceGroupSettings->setCompilerFlags({"-local-flag"});
+
+	std::shared_ptr<ApplicationSettings> applicationSettings = ApplicationSettings::getInstance();
+
+	std::vector<FilePath> storedHeaderSearchPaths = applicationSettings->getHeaderSearchPaths();
+	std::vector<FilePath> storedFrameworkSearchPaths = applicationSettings->getFrameworkSearchPaths();
+
+	applicationSettings->setHeaderSearchPaths({FilePath("test/header/search/path")});
+	applicationSettings->setFrameworkSearchPaths({FilePath("test/framework/search/path")});
+
+	generateAndCompareExpectedOutput(
+		projectName, std::make_shared<SourceGroupCxxCdb>(sourceGroupSettings));
+
+	applicationSettings->setHeaderSearchPaths(storedHeaderSearchPaths);
+	applicationSettings->setFrameworkSearchPaths(storedFrameworkSearchPaths);
+}
+
 TEST_CASE("source gropup cxx c correct default standard")
 {
 	string defaultCStandard = SourceGroupSettingsWithCStandard::getDefaultCStandard();
