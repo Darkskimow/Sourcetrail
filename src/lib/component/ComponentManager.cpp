@@ -22,6 +22,7 @@ using view_initializer_list = initializer_list<shared_ptr<View>>;
 namespace
 {
 template <class Container>
+// Vide le conteneur en depilant ses elements dans l'ordre inverse.
 void reverseErase(Container& container)
 {
 	while (!container.empty())
@@ -29,11 +30,13 @@ void reverseErase(Container& container)
 }
 }	 // namespace
 
+//--------------------------------------------------------------------------------------------------
 ComponentManager::ComponentManager(const ViewFactory* viewFactory, StorageAccess* storageAccess)
 	: m_componentFactory(viewFactory, storageAccess)
 {
 }
 
+//--------------------------------------------------------------------------------------------------
 void ComponentManager::clear()
 {
 	m_dialogViews.clear();
@@ -41,8 +44,10 @@ void ComponentManager::clear()
 	reverseErase(m_singleViews);
 }
 
+//--------------------------------------------------------------------------------------------------
 void ComponentManager::setupMain(ViewLayout* viewLayout, TabId appId)
 {
+	// Construit la structure de l'onglet principal et les vues partagees par l'application.
 	std::shared_ptr<CompositeView> compositeView = m_componentFactory.getViewFactory()->createCompositeView(viewLayout, CompositeView::DIRECTION_HORIZONTAL, "Search", TabId::NONE);
 	m_singleViews.push_back(compositeView);
 
@@ -73,6 +78,7 @@ void ComponentManager::setupMain(ViewLayout* viewLayout, TabId appId)
 	std::shared_ptr<Component> tooltipComponent = m_componentFactory.createTooltipComponent(viewLayout);
 	m_components.push_back(tooltipComponent);
 
+	// Ces boites de dialogue globales restent disponibles quel que soit l'onglet actif.
 	for (auto useCase : { DialogView::UseCase::GENERAL, DialogView::UseCase::INDEXING, DialogView::UseCase::PROJECT_SETUP})
 	{
 		m_dialogViews.emplace(useCase, m_componentFactory.getViewFactory()->createDialogView(viewLayout, useCase, m_componentFactory.getStorageAccess()));
@@ -102,8 +108,10 @@ void ComponentManager::setupMain(ViewLayout* viewLayout, TabId appId)
 	m_components.push_back(customTrailComponent);
 }
 
+//--------------------------------------------------------------------------------------------------
 void ComponentManager::setupTab(ViewLayout* viewLayout, TabId tabId, ScreenSearchSender* screenSearchSender)
 {
+	// Chaque onglet recree ses propres composants interactifs, mais reutilise la meme logique d'assemblage.
 	std::shared_ptr<CompositeView> compositeView =
 		m_componentFactory.getViewFactory()->createCompositeView(
 			viewLayout, CompositeView::DIRECTION_HORIZONTAL, "Search", tabId);
@@ -141,6 +149,7 @@ void ComponentManager::setupTab(ViewLayout* viewLayout, TabId tabId, ScreenSearc
 	screenSearchSender->addResponder(codeComponent->getView<CodeView>());
 }
 
+//--------------------------------------------------------------------------------------------------
 void ComponentManager::teardownTab(ScreenSearchSender* screenSearchSender)
 {
 	for (const std::shared_ptr<Component>& component: m_components)
@@ -150,6 +159,7 @@ void ComponentManager::teardownTab(ScreenSearchSender* screenSearchSender)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void ComponentManager::clearComponents()
 {
 	for (const std::shared_ptr<Component>& component: m_components)
@@ -163,8 +173,10 @@ void ComponentManager::clearComponents()
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void ComponentManager::refreshViews()
 {
+	// Rafraichit d'abord les vues portees par des composants, puis les vues "simples" gerees a part.
 	for (const std::shared_ptr<Component>& component: m_components)
 	{
 		View* view = component->getView<View>();
@@ -181,6 +193,7 @@ void ComponentManager::refreshViews()
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 View* ComponentManager::getView(const std::string& name) const
 {
 	for (const std::shared_ptr<Component>& component: m_components)
@@ -204,6 +217,7 @@ View* ComponentManager::getView(const std::string& name) const
 	return nullptr;
 }
 
+//--------------------------------------------------------------------------------------------------
 std::shared_ptr<DialogView> ComponentManager::getDialogView(DialogView::UseCase useCase) const
 {
 	auto it = m_dialogViews.find(useCase);

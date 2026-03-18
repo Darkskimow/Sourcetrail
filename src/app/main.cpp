@@ -46,17 +46,18 @@
 using namespace std;
 using namespace boost::filesystem;
 
+//--------------------------------------------------------------------------------------------------
 void closeConsoleWindow()
 {
 #if BOOST_OS_WINDOWS
-	// Hide the console which Windows creates if Sourcetrail was not started from one:
+	// Masque la console creee par Windows lorsque Sourcetrail n'a pas ete lance depuis un terminal.
 	if (HWND consoleWnd = GetConsoleWindow(); consoleWnd != nullptr) {
 		DWORD consoleOwnerProcessId;
 		if (GetWindowThreadProcessId(consoleWnd, &consoleOwnerProcessId) != 0) {
 			if (consoleOwnerProcessId == GetCurrentProcessId()) {
-				// Hiding will not work if the default terminal is *not* the 'Windows console host'
-				// as is the case for Windows 11. See https://github.com/petermost/Sourcetrail/issues/19
-				// for further details.
+				// Le masquage ne fonctionne pas si le terminal par defaut n'est pas le
+				// "Windows console host", comme c'est le cas sur certaines configurations
+				// de Windows 11. Voir https://github.com/petermost/Sourcetrail/issues/19.
 
 				ShowWindow(consoleWnd, SW_HIDE);
 			}
@@ -65,28 +66,35 @@ void closeConsoleWindow()
 #endif
 }
 
+//--------------------------------------------------------------------------------------------------
 void signalHandler(int  /*signum*/)
 {
 	std::cout << "interrupt indexing" << std::endl;
 	MessageIndexingInterrupted().dispatch();
 }
 
+//--------------------------------------------------------------------------------------------------
 void setupLogging()
 {
 	LogManager* logManager = LogManager::getInstance().get();
 
+	// Active la sortie console pour attraper les messages emis tres tot au demarrage.
 	std::shared_ptr<ConsoleLogger> consoleLogger = std::make_shared<ConsoleLogger>();
 	consoleLogger->setLogLevel(Logger::LOG_ALL);
 	logManager->addLogger(consoleLogger);
 
+	// Conserve aussi une trace persistante sur disque pour les diagnostics post-mortem.
 	std::shared_ptr<FileLogger> fileLogger = std::make_shared<FileLogger>();
 	fileLogger->setLogLevel(Logger::LOG_ALL);
 	fileLogger->deleteLogFiles(FileLogger::generateDatedFileName("log", "", -30));
 	logManager->addLogger(fileLogger);
 }
 
+//--------------------------------------------------------------------------------------------------
 void addLanguagePackages()
 {
+	// Les modules de groupes sources doivent etre declares avant les paquets de langages
+	// afin que l'application sache creer les bons types de projets.
 	SourceGroupFactory::getInstance()->addModule(std::make_shared<SourceGroupFactoryModuleCustom>());
 
 #if BUILD_CXX_LANGUAGE_PACKAGE
@@ -106,14 +114,15 @@ void addLanguagePackages()
 #endif	  // BUILD_JAVA_LANGUAGE_PACKAGE
 }
 
+//--------------------------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
 	setupDefaultLocale();
 
-	// Must get the correct directory for:
-	// Windows: 'Sourcetrail' (doesn't exist, so canonical() would fail!)
-	// Windows: 'Sourcetrail.exe'
-	// Linux:   './Sourcetrail'
+	// Recupere toujours le bon dossier executable pour les differentes formes de lancement :
+	// Windows : "Sourcetrail" (n'existe pas encore, donc canonical() echouerait)
+	// Windows : "Sourcetrail.exe"
+	// Linux   : "./Sourcetrail"
 
 	const path appDirectory = weakly_canonical(argv[0]).parent_path();
 	Version version = setupAppDirectories(appDirectory.generic_string());
@@ -139,7 +148,7 @@ int main(int argc, char* argv[])
 
 	if (commandLineParser.runWithoutGUI())
 	{
-		// headless Sourcetrail
+		// Mode sans interface graphique utilise pour les executions en ligne de commande.
 		[[maybe_unused]]
 		QtCoreApplication qtApp(argc, argv);
 
@@ -150,6 +159,7 @@ int main(int argc, char* argv[])
 		[[maybe_unused]]
 		ScopedFunctor f([]()
 		{
+			// Garantit la liberation de l'instance globale meme en cas de retour anticipe.
 			Application::destroyInstance();
 		});
 
@@ -180,6 +190,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
+		// Mode graphique complet, avec vues Qt et integration reseau.
 		[[maybe_unused]]
 		QtApplication qtApp(argc, argv);
 
@@ -193,6 +204,7 @@ int main(int argc, char* argv[])
 		[[maybe_unused]]
 		ScopedFunctor f([]()
 		{
+			// Symetrique a la creation : l'application est detruite automatiquement a la sortie.
 			Application::destroyInstance();
 		});
 

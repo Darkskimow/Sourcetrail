@@ -3,6 +3,7 @@
 #include "IndexerComposite.h"
 #include "LanguagePackage.h"
 
+//--------------------------------------------------------------------------------------------------
 std::shared_ptr<LanguagePackageManager> LanguagePackageManager::getInstance()
 {
 	if (!s_instance)
@@ -12,18 +13,22 @@ std::shared_ptr<LanguagePackageManager> LanguagePackageManager::getInstance()
 	return s_instance;
 }
 
+//--------------------------------------------------------------------------------------------------
 void LanguagePackageManager::destroyInstance()
 {
 	s_instance.reset();
 }
 
+//--------------------------------------------------------------------------------------------------
 void LanguagePackageManager::addPackage(std::shared_ptr<LanguagePackage> package)
 {
 	m_packages.push_back(package);
 }
 
+//--------------------------------------------------------------------------------------------------
 std::shared_ptr<IndexerComposite> LanguagePackageManager::instantiateSupportedIndexers()
 {
+	// Construit un indexeur composite regroupant tous les indexeurs fournis par les paquets charges.
 	std::shared_ptr<IndexerComposite> composite = std::make_shared<IndexerComposite>();
 	for (const std::shared_ptr<LanguagePackage> &package: m_packages)
 	{
@@ -35,4 +40,5 @@ std::shared_ptr<IndexerComposite> LanguagePackageManager::instantiateSupportedIn
 	return composite;
 }
 
+//--------------------------------------------------------------------------------------------------
 std::shared_ptr<LanguagePackageManager> LanguagePackageManager::s_instance;

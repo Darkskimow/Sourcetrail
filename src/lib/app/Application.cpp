@@ -30,10 +30,14 @@
 #include "tracing.h"
 #include "utilityUuid.h"
 
+//--------------------------------------------------------------------------------------------------
+// Etat global partage par l'application.
+//--------------------------------------------------------------------------------------------------
 std::shared_ptr<Application> Application::s_instance;
 std::string Application::s_uuid;
 bool Application::s_previousSendMessagesAsTasks = false;
 
+//--------------------------------------------------------------------------------------------------
 void Application::createInstance(const Version& version, ViewFactory* viewFactory, NetworkFactory* networkFactory)
 {
 	bool hasGui = (viewFactory != nullptr);
@@ -45,6 +49,7 @@ void Application::createInstance(const Version& version, ViewFactory* viewFactor
 		GraphViewStyle::setImpl(viewFactory->createGraphStyleImpl());
 	}
 
+	// Charge les preferences avant de construire les services dependants du style ou du logging.
 	loadSettings();
 
 	SharedMemoryGarbageCollector* collector = SharedMemoryGarbageCollector::createInstance();
@@ -76,16 +81,18 @@ void Application::createInstance(const Version& version, ViewFactory* viewFactor
 	s_instance->startMessagingAndScheduling();
 }
 
+//--------------------------------------------------------------------------------------------------
 std::shared_ptr<Application> Application::getInstance()
 {
 	return s_instance;
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::destroyInstance()
 {
 	MessageQueue::getInstance()->stopMessageLoopThread();
 
-	// It's important to reset this to the previous value (i.e. false), otherwise the MessageQueue tests will fail!
+	// Il faut restaurer l'etat precedent, sinon les tests de MessageQueue changent de comportement.
 	MessageQueue::getInstance()->setSendMessagesAsTasks(s_previousSendMessagesAsTasks);
 
 	TaskManager::destroyScheduler(TabIds::background());
@@ -94,6 +101,7 @@ void Application::destroyInstance()
 	s_instance.reset();
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::startMessagingAndScheduling()
 {
 	TaskManager::getScheduler(TabIds::app())->startSchedulerLoopThreaded();
@@ -108,6 +116,7 @@ void Application::startMessagingAndScheduling()
 	queue->startMessageLoopThread();
 }
 
+//--------------------------------------------------------------------------------------------------
 std::string Application::getUUID()
 {
 	if (s_uuid.size() == 0)
@@ -118,10 +127,12 @@ std::string Application::getUUID()
 	return s_uuid;
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::loadSettings()
 {
 	MessageStatus("Load settings: " + UserPaths::getAppSettingsFilePath().str()).dispatch();
 
+	// Recharge l'encodage, la journalisation et le theme depuis les preferences utilisateur.
 	std::shared_ptr<ApplicationSettings> settings = ApplicationSettings::getInstance();
 	settings->load(UserPaths::getAppSettingsFilePath());
 	MessageTextEncodingChanged(settings->getTextEncoding()).dispatch();
@@ -138,14 +149,17 @@ void Application::loadSettings()
 	loadStyle(settings->getColorSchemePath());
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::loadStyle(const FilePath& colorSchemePath)
 {
 	ColorScheme::getInstance()->load(colorSchemePath);
 	GraphViewStyle::loadStyleSettings();
 }
 
+//--------------------------------------------------------------------------------------------------
 Application::Application(bool withGUI): m_hasGUI(withGUI) {}
 
+//--------------------------------------------------------------------------------------------------
 Application::~Application()
 {
 	if (m_hasGUI)
@@ -160,11 +174,13 @@ Application::~Application()
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 std::shared_ptr<const Project> Application::getCurrentProject() const
 {
 	return m_project;
 }
 
+//--------------------------------------------------------------------------------------------------
 FilePath Application::getCurrentProjectPath() const
 {
 	if (m_project)
@@ -175,6 +191,7 @@ FilePath Application::getCurrentProjectPath() const
 	return FilePath();
 }
 
+//--------------------------------------------------------------------------------------------------
 bool Application::isProjectLoaded() const
 {
 	if (m_project)
@@ -184,21 +201,25 @@ bool Application::isProjectLoaded() const
 	return false;
 }
 
+//--------------------------------------------------------------------------------------------------
 bool Application::hasGUI() const
 {
 	return m_hasGUI;
 }
 
+//--------------------------------------------------------------------------------------------------
 int Application::handleDialog(const std::string& message)
 {
 	return getDialogView(DialogView::UseCase::GENERAL)->confirm(message);
 }
 
+//--------------------------------------------------------------------------------------------------
 int Application::handleDialog(const std::string& message, const std::vector<std::string>& options)
 {
 	return getDialogView(DialogView::UseCase::GENERAL)->confirm(message, options);
 }
 
+//--------------------------------------------------------------------------------------------------
 std::shared_ptr<DialogView> Application::getDialogView(DialogView::UseCase useCase)
 {
 	if (m_mainView)
@@ -209,16 +230,19 @@ std::shared_ptr<DialogView> Application::getDialogView(DialogView::UseCase useCa
 	return std::make_shared<DialogView>(useCase, nullptr);
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::updateHistoryMenu(std::shared_ptr<MessageBase> message)
 {
 	m_mainView->updateHistoryMenu(message);
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::updateBookmarks(const std::vector<std::shared_ptr<Bookmark>>& bookmarks)
 {
 	m_mainView->updateBookmarksMenu(bookmarks);
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::handleMessage(MessageActivateWindow*  /*message*/)
 {
 	if (m_hasGUI)
@@ -227,6 +251,7 @@ void Application::handleMessage(MessageActivateWindow*  /*message*/)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::handleMessage(MessageCloseProject*  /*message*/)
 {
 	if (m_project && m_project->isIndexing())
@@ -240,6 +265,7 @@ void Application::handleMessage(MessageCloseProject*  /*message*/)
 	m_mainView->clear();
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::handleMessage(MessageIndexingFinished*  /*message*/)
 {
 	logStorageStats();
@@ -254,11 +280,13 @@ void Application::handleMessage(MessageIndexingFinished*  /*message*/)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::handleMessage(MessageLoadProject* message)
 {
 	TRACE("app load project");
 
 	FilePath projectSettingsFilePath(message->projectSettingsFilePath);
+	// Charge la fenetre meme sans projet pour pouvoir afficher l'ecran d'accueil.
 	loadWindow(projectSettingsFilePath.empty());
 
 	if (projectSettingsFilePath.empty())
@@ -295,9 +323,10 @@ void Application::handleMessage(MessageLoadProject* message)
 		{
 			updateRecentProjects(projectSettingsFilePath);
 
+			// Nettoie l'etat precedent avant d'associer un nouveau stockage au projet courant.
 			m_storageCache->clear();
 			m_storageCache->setSubject(
-				std::weak_ptr<StorageAccess>());	// TODO: check if this is really required.
+				std::weak_ptr<StorageAccess>());	// TODO: verifier si c'est reellement necessaire.
 
 			m_project = std::make_shared<Project>(
 				std::make_shared<ProjectSettings>(projectSettingsFilePath),
@@ -321,8 +350,8 @@ void Application::handleMessage(MessageLoadProject* message)
 		catch (CppSQLite3Exception& e)
 		{
 			const std::string message = "Failed to load project at \"" +
-										 projectSettingsFilePath.str() + "\" with sqlite exception: " +
-										 e.errorMessage();
+									 projectSettingsFilePath.str() + "\" with sqlite exception: " +
+									 e.errorMessage();
 			LOG_ERROR(message);
 			MessageStatus(message, true).dispatch();
 		}
@@ -349,6 +378,7 @@ void Application::handleMessage(MessageLoadProject* message)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::handleMessage(MessageRefresh* message)
 {
 	TRACE("app refresh");
@@ -356,6 +386,7 @@ void Application::handleMessage(MessageRefresh* message)
 	refreshProject(message->all ? RefreshMode::ALL_FILES : RefreshMode::UPDATED_FILES);
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::handleMessage(MessageRefreshUI* message)
 {
 	TRACE("ui refresh");
@@ -375,6 +406,7 @@ void Application::handleMessage(MessageRefreshUI* message)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::handleMessage(MessageSwitchColorScheme* message)
 {
 	MessageStatus("Switch color scheme: " + message->colorSchemePath.str()).dispatch();
@@ -383,7 +415,7 @@ void Application::handleMessage(MessageSwitchColorScheme* message)
 	MessageRefreshUI().noStyleReload().dispatch();
 }
 
-
+//--------------------------------------------------------------------------------------------------
 void Application::loadWindow(bool showStartWindow)
 {
 	if (!m_hasGUI)
@@ -404,6 +436,7 @@ void Application::loadWindow(bool showStartWindow)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::refreshProject(RefreshMode refreshMode)
 {
 	if (m_project && checkSharedMemory())
@@ -417,6 +450,7 @@ void Application::refreshProject(RefreshMode refreshMode)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::updateRecentProjects(const FilePath& projectSettingsFilePath)
 {
 	if (m_hasGUI)
@@ -446,6 +480,7 @@ void Application::updateRecentProjects(const FilePath& projectSettingsFilePath)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::logStorageStats() const
 {
 	if (!ApplicationSettings::getInstance()->getLoggingEnabled())
@@ -474,6 +509,7 @@ void Application::logStorageStats() const
 	LOG_INFO(ss.str());
 }
 
+//--------------------------------------------------------------------------------------------------
 void Application::updateTitle()
 {
 	if (m_hasGUI)
@@ -494,11 +530,13 @@ void Application::updateTitle()
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
 bool Application::checkSharedMemory()
 {
 	std::string error = SharedMemory::checkSharedMemory(getUUID());
 	if (error.size() != 0)
 	{
+		// Sans memoire partagee fonctionnelle, l'indexeur externe ne peut plus echanger avec l'application.
 		MessageStatus(
 			"Error on accessing shared memory. Indexing not possible. "
 			"Please restart computer or run as admin: " +
